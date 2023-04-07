@@ -1,0 +1,5 @@
+lqri8Jfu,Clean the sink,2023-04-06 23:38:58,true
+EYDH8Ot_,Buy milk,2023-04-06 23:39:08,false
+W_CpSSTz,Go fish,2023-04-06 23:48:14,false
+yo3xBxcJ,Podlać kwiatki,2023-04-07 07:14:40,true
+ILPsx-Yq,Naładować telefon,2023-04-07 07:14:54,false
