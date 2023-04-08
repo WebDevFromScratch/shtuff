@@ -1,28 +1,28 @@
 require 'thor'
-require 'securerandom'
+require 'sequel'
+require 'pry'
 
-# For an easier usage, set up an alias in your .bashrc or .zshrc file:
-# 1. cd to the folder containing this file
-# 2. run `pwd` to get the full path to this (we'll call it /path/to/)
-# 3. open your .bashrc or .zshrc file in your favorite text editor (e.g. nano ~/.bashrc)
-# 4. add the alias, like so: `alias stuff="ruby /path/to/shtuff.rb"`
-# 5. save the file and run `source ~/.bashrc` to reload your shell
-# 6. now you can run `stuff` instead of `ruby /path/to/shtuff.rb`
-# 7. you can also run `stuff help` to see the list of commands & add more convenience aliases from there
+DB_NAME = 'shtuff.db'
+DB = Sequel.connect("sqlite://#{DB_NAME}")
+unless DB.table_exists?(:tasks)
+  DB.create_table(:tasks) do
+    primary_key :id
+    String :name
+    Boolean :completed, default: false
+    DateTime :created_at
+    DateTime :updated_at
+  end
+end
 
-class TaskManager < Thor
+module Persistence
+  class Task < Sequel::Model(:tasks)
+  end
+end
+
+class Shtuff < Thor
   desc "add_task TASK_NAME", "Add a task to the to-do list"
   def add_task(task_name)
-    # Generate a short identifier for the new task
-    id = SecureRandom.urlsafe_base64(6)
-
-    # Get the current time as a formatted string
-    timestamp = Time.now.strftime("%Y-%m-%d %H:%M:%S")
-
-    # Append the new task to the tasks file
-    File.open("tasks.txt", "a") do |file|
-      file.puts "#{id},#{task_name},#{timestamp},false"
-    end
+    Persistence::Task.create(name: task_name, created_at: Time.now, updated_at: Time.now)
 
     puts "Task '#{task_name}' added to the to-do list"
   end
@@ -32,53 +32,33 @@ class TaskManager < Thor
     puts "To-Do List:"
     puts "-----------"
 
-    # Read the contents of the tasks file into an array
-    tasks = File.readlines("tasks.txt")
+    # Retrieve all tasks from the tasks table
+    tasks = Persistence::Task.all
 
     # Loop through each task and display its details
     tasks.each do |task|
-      id, task_name, timestamp, completed = task.chomp.split(",")
-      status = completed == "true" ? "[X]" : "[ ]"
-      puts "#{status} #{id} - #{task_name} (added #{timestamp})"
+      # id, task_name, timestamp, completed = task
+      status = task.completed == 1 ? "[X]" : "[ ]"
+      puts "#{status} #{task.id} - #{task.name} (added #{task.created_at})"
     end
   end
 
   desc "complete_task ID", "Mark a task as complete"
   def complete_task(id)
-    # Read the contents of the tasks file into an array
-    tasks = File.readlines("tasks.txt")
+    task = Persistence::Task[id]
+    task.completed = true
+    task.save
 
-    # Loop through each task and update its completed status if the ID matches
-    tasks.each_with_index do |task, index|
-      task_id, task_name, timestamp, completed = task.chomp.split(",")
-      if task_id == id
-        tasks[index] = "#{task_id},#{task_name},#{timestamp},true\n"
-        File.write("tasks.txt", tasks.join)
-        puts "Task '#{task_name}' marked as complete"
-        return
-      end
-    end
-
-    puts "No task found with ID '#{id}'"
+    puts "Task '#{id}' marked as complete"
   end
 
   desc "incomplete_task ID", "Mark a task as incomplete"
   def incomplete_task(id)
-    # Read the contents of the tasks file into an array
-    tasks = File.readlines("tasks.txt")
+    task = Persistence::Task[id]
+    task.completed = false
+    task.save
 
-    # Loop through each task and update its completed status if the ID matches
-    tasks.each_with_index do |task, index|
-      task_id, task_name, timestamp, completed = task.chomp.split(",")
-      if task_id == id
-        tasks[index] = "#{task_id},#{task_name},#{timestamp},false\n"
-        File.write("tasks.txt", tasks.join)
-        puts "Task '#{task_name}' marked as incomplete"
-        return
-      end
-    end
-
-    puts "No task found with ID '#{id}'"
+    puts "Task '#{id}' marked as incomplete"
   end
 
   desc "add_appointment DATE TIME DESCRIPTION", "Add a new appointment to the calendar"
@@ -102,4 +82,4 @@ class TaskManager < Thor
   end
 end
 
-TaskManager.start(ARGV)
+Shtuff.start(ARGV)
